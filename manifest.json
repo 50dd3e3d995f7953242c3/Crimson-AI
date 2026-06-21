@@ -1,17 +1,23 @@
 {
+  "short_name": "Crimson AI",
   "name": "Crimson AI",
-  "short_name": "Crimson",
-  "start_url": "index.html",
-  "display": "standalone",
-  "background_color": "#050505",
-  "theme_color": "#5a0011",
-  "orientation": "portrait",
   "icons": [
     {
       "src": "logo.png",
-      "sizes": "512x512",
       "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "logo.png",
+      "type": "image/png",
+      "sizes": "512x512",
       "purpose": "any maskable"
     }
-  ]
+  ],
+  "start_url": "/",
+  "background_color": "#000000",
+  "theme_color": "#990000",
+  "display": "standalone",
+  "orientation": "portrait"
 }
