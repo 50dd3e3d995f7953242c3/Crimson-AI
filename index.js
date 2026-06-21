@@ -9,7 +9,6 @@ app.use(express.json());
 const KEY = process.env.GEMINI_KEY;
 const MONGO_URI = process.env.MONGO_URI;
 
-// Conectar ao MongoDB
 if (MONGO_URI) {
   mongoose.connect(MONGO_URI)
     .then(() => console.log("Conectado ao MongoDB com sucesso!"))
@@ -18,7 +17,6 @@ if (MONGO_URI) {
   console.log("Aviso: MONGO_URI não configurada. O histórico não será salvo.");
 }
 
-// Criar o Modelo para salvar as conversas
 const ChatSchema = new mongoose.Schema({
   userId: String,
   history: [{ role: String, parts: [{ text: String }] }]
@@ -32,23 +30,25 @@ app.post("/chat", async (req, res) => {
     }
 
     const userMessage = req.body.message;
-    // ID fixo para testar a memória global do bot por enquanto
     const idUsuario = "gaster_default"; 
 
-    // 1. Buscar histórico existente no banco
     let conversa = await Chat.findOne({ userId: idUsuario });
     if (!conversa) {
       conversa = new Chat({ userId: idUsuario, history: [] });
     }
 
-    // 2. Adicionar a nova mensagem do usuário ao histórico
     conversa.history.push({ role: "user", parts: [{ text: userMessage }] });
 
-    // 3. Disparar para o Gemini enviando TODO o histórico acumulado
+    // 🔥 CORREÇÃO AQUI: Limpa os campos '_id' gerados pelo MongoDB para enviar um JSON puro para a Google
+    const historicoLimpo = conversa.history.map(msg => ({
+      role: msg.role,
+      parts: msg.parts.map(p => ({ text: p.text }))
+    }));
+
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${KEY}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contents: conversa.history })
+      body: JSON.stringify({ contents: historicoLimpo }) // Envia o histórico limpo
     });
 
     const d = await r.json();
@@ -56,7 +56,6 @@ app.post("/chat", async (req, res) => {
 
     const botResponse = d.candidates[0].content.parts[0].text;
 
-    // 4. Adicionar a resposta da IA ao histórico e salvar tudo no banco
     conversa.history.push({ role: "model", parts: [{ text: botResponse }] });
     await conversa.save();
 
