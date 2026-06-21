@@ -32,23 +32,30 @@ app.post("/chat", async (req, res) => {
     const userMessage = req.body.message;
     const idUsuario = "gaster_default"; 
 
-    let conversa = await Chat.findOne({ userId: idUsuario });
+    if (userMessage.toLowerCase() === "clear") {
+      if (MONGO_URI) {
+        await Chat.deleteOne({ userId: idUsuario });
+      }
+      return res.json({ response: "Histórico antigo deletado com sucesso! Pode testar agora." });
+    }
+
+    let conversa = await Chat.findOne({ userId: idUsuario }).lean();
+    
     if (!conversa) {
-      conversa = new Chat({ userId: idUsuario, history: [] });
+      conversa = { userId: idUsuario, history: [] };
     }
 
     conversa.history.push({ role: "user", parts: [{ text: userMessage }] });
 
-    // 🔥 CORREÇÃO AQUI: Limpa os campos '_id' gerados pelo MongoDB para enviar um JSON puro para a Google
-    const historicoLimpo = conversa.history.map(msg => ({
-      role: msg.role,
-      parts: msg.parts.map(p => ({ text: p.text }))
+    const docsParaGoogle = conversa.history.map(msg => ({
+      role: String(msg.role),
+      parts: msg.parts.map(p => ({ text: String(p.text) }))
     }));
 
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${KEY}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contents: historicoLimpo }) // Envia o histórico limpo
+      body: JSON.stringify({ contents: docsParaGoogle })
     });
 
     const d = await r.json();
@@ -57,7 +64,12 @@ app.post("/chat", async (req, res) => {
     const botResponse = d.candidates[0].content.parts[0].text;
 
     conversa.history.push({ role: "model", parts: [{ text: botResponse }] });
-    await conversa.save();
+    
+    await Chat.updateOne(
+      { userId: idUsuario },
+      { $set: { history: conversa.history } },
+      { upsert: true }
+    );
 
     res.json({ response: botResponse });
   } catch (e) {
