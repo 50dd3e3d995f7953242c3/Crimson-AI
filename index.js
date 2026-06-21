@@ -1,10 +1,14 @@
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
+const path = require("path");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Servir os arquivos do PWA direto da pasta raiz do projeto
+app.use(express.static(__dirname));
 
 const KEY = process.env.GEMINI_KEY;
 const MONGO_URI = process.env.MONGO_URI;
@@ -22,6 +26,11 @@ const ChatSchema = new mongoose.Schema({
   history: [{ role: String, parts: [{ text: String }] }]
 });
 const Chat = mongoose.model("Chat", ChatSchema);
+
+// Rota para abrir o aplicativo na página inicial
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
 
 app.post("/chat", async (req, res) => {
   try {
